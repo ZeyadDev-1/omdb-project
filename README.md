@@ -1,5 +1,7 @@
 # OMDb Movie Search SPA
 
+## Live Demo: https://zeyaddev-1.github.io/omdb-project/
+
 ## Overview
 
 OMDb Movie Search SPA is a responsive single-page movie search application built with HTML, CSS, and vanilla JavaScript. It uses the OMDb API to search for movies and display detailed movie information in a clean frontend-only interface.
@@ -34,13 +36,6 @@ OMDb Movie Search SPA is a responsive single-page movie search application built
 2. Open `index.html` locally in a browser.
 
 3. In `app.js`, replace `YOUR_API_KEY_HERE` with your OMDb API key by updating the `OMDB_API_KEY` constant.
-
-4. Alternatively, use the deployed GitHub Pages version:
-
-   Live Demo: https://YOUR_USERNAME.github.io/omdb-project/
-
-
-Live Demo: https://YOUR_USERNAME.github.io/omdb-project/
 
 ## Project Structure
 
