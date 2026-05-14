@@ -21,11 +21,11 @@
       <section class="search-panel" aria-labelledby="search-title">
         <div class="search-copy">
           <h2 id="search-title">Search by movie title</h2>
-          <p>Type an exact or familiar title and get poster art, credits, ratings, and the full plot from OMDb.</p>
+          <p>Enter an exact movie title, then narrow the search with optional filters for type, year, and plot length.</p>
         </div>
 
         <form class="search-form" id="movie-form" novalidate>
-          <div class="field-group">
+          <div class="field-group title-field">
             <label for="movie-title">Movie name</label>
             <input
               type="search"
@@ -33,8 +33,39 @@
               name="movie-title"
               placeholder="For example: Inception"
               autocomplete="off"
-              aria-describedby="search-message"
+              aria-describedby="title-helper search-message"
             >
+            <p id="title-helper" class="field-helper">OMDb works best with exact movie titles.</p>
+          </div>
+          <div class="filters-grid" aria-label="Search filters">
+            <div class="field-group">
+              <label for="movie-type">Type</label>
+              <select id="movie-type" name="movie-type">
+                <option value="">Any</option>
+                <option value="movie">Movie</option>
+                <option value="series">Series</option>
+                <option value="episode">Episode</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="movie-year">Year</label>
+              <input
+                type="text"
+                id="movie-year"
+                name="movie-year"
+                placeholder="1999"
+                inputmode="numeric"
+                maxlength="4"
+                pattern="[0-9]{4}"
+              >
+            </div>
+            <div class="field-group">
+              <label for="movie-plot">Plot</label>
+              <select id="movie-plot" name="movie-plot">
+                <option value="short">Short</option>
+                <option value="full" selected>Full</option>
+              </select>
+            </div>
           </div>
           <button type="submit" id="search-button">
             <span class="button-text">Search</span>

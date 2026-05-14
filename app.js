@@ -1,32 +1,51 @@
 const OMDB_API_KEY = "6771de16";
 const OMDB_API_URL = "https://www.omdbapi.com/";
-const LAST_SEARCH_KEY = "omdb:lastSuccessfulSearch";
+const SEARCH_STATE_KEY = "omdb:lastSuccessfulSearch";
+const DEFAULT_SEARCH_STATE = {
+  title: "",
+  type: "",
+  year: "",
+  plot: "full",
+};
+const VALID_TYPES = ["", "movie", "series", "episode"];
+const VALID_PLOTS = ["short", "full"];
 
 const movieCache = new Map();
 let isLoading = false;
 
 const form = document.querySelector("#movie-form");
 const input = document.querySelector("#movie-title");
+const typeSelect = document.querySelector("#movie-type");
+const yearInput = document.querySelector("#movie-year");
+const plotSelect = document.querySelector("#movie-plot");
 const searchButton = document.querySelector("#search-button");
 const messageEl = document.querySelector("#search-message");
 const resultEl = document.querySelector("#movie-result");
+const searchControls = [input, typeSelect, yearInput, plotSelect];
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
-  searchMovie(input.value).catch(handleUnexpectedSearchError);
+  searchMovie(input.value, getSearchOptions()).catch(handleUnexpectedSearchError);
 });
 
-document.addEventListener("DOMContentLoaded", () => {
-  const lastSearch = loadLastSearch();
+[typeSelect, plotSelect].forEach((control) => {
+  control.addEventListener("change", saveFilterPreferences);
+});
+yearInput.addEventListener("input", saveFilterPreferences);
 
-  if (lastSearch) {
-    input.value = lastSearch;
-    searchMovie(lastSearch).catch(handleUnexpectedSearchError);
+document.addEventListener("DOMContentLoaded", () => {
+  const savedState = loadSearchState();
+
+  applySearchState(savedState);
+
+  if (savedState.title) {
+    searchMovie(savedState.title, getSearchOptions()).catch(handleUnexpectedSearchError);
   }
 });
 
-async function searchMovie(rawTitle) {
+async function searchMovie(rawTitle, options = getSearchOptions()) {
   const title = String(rawTitle || "").trim();
+  const searchOptions = normalizeSearchOptions(options);
 
   if (isLoading) {
     renderMessage("Please wait for the current search to finish.", "error");
@@ -44,12 +63,13 @@ async function searchMovie(rawTitle) {
     return;
   }
 
-  const cacheKey = normalizeTitle(title);
+  saveSearchState({ title, ...searchOptions });
+
+  const cacheKey = createCacheKey(title, searchOptions);
   const cachedMovie = movieCache.get(cacheKey);
 
   if (cachedMovie) {
     renderMovie(cachedMovie);
-    saveLastSearch(cachedMovie.Title);
     renderMessage("Loaded from this session's cache.", "success");
     return;
   }
@@ -58,12 +78,11 @@ async function searchMovie(rawTitle) {
   renderMessage(`Searching for "${title}"...`);
 
   try {
-    const movie = await fetchMovie(title);
+    const movie = await fetchMovie(title, searchOptions);
 
     movieCache.set(cacheKey, movie);
-    movieCache.set(normalizeTitle(movie.Title), movie);
+    movieCache.set(createCacheKey(movie.Title, searchOptions), movie);
     renderMovie(movie);
-    saveLastSearch(movie.Title);
     renderMessage(`Showing results for "${movie.Title}".`, "success");
   } catch (error) {
     renderError(getFriendlyErrorMessage(error));
@@ -72,8 +91,22 @@ async function searchMovie(rawTitle) {
   }
 }
 
-async function fetchMovie(title) {
-  const url = `${OMDB_API_URL}?apikey=${encodeURIComponent(OMDB_API_KEY)}&t=${encodeURIComponent(title)}&plot=full`;
+async function fetchMovie(title, options) {
+  const params = new URLSearchParams({
+    apikey: OMDB_API_KEY,
+    t: title,
+    plot: options.plot,
+  });
+
+  if (options.type) {
+    params.set("type", options.type);
+  }
+
+  if (options.year) {
+    params.set("y", options.year);
+  }
+
+  const url = `${OMDB_API_URL}?${params.toString()}`;
   const response = await fetch(url);
 
   if (!response.ok) {
@@ -97,16 +130,17 @@ function renderMovie(movie) {
       </div>
       <div class="movie-content">
         <div class="movie-kicker">
-          ${renderPill(movie.Year)}
-          ${renderPill(movie.Genre)}
-          ${renderPill(movie.Runtime)}
-          ${renderPill(formatRating(movie.imdbRating))}
+          ${renderPill("Genre", movie.Genre)}
+          ${renderPill("Year", movie.Year)}
+          ${renderPill("Type", formatType(movie.Type))}
+          ${renderPill("IMDb", formatRating(movie.imdbRating))}
         </div>
         <h2 class="movie-title">${escapeHtml(formatValue(movie.Title))}</h2>
         <p class="plot">${escapeHtml(formatValue(movie.Plot, "No plot is available for this movie."))}</p>
         <dl class="details-grid">
           ${renderDetail("Year", movie.Year)}
           ${renderDetail("Genre", movie.Genre)}
+          ${renderDetail("Type", formatType(movie.Type))}
           ${renderDetail("Director", movie.Director)}
           ${renderDetail("Actors", movie.Actors)}
           ${renderDetail("Runtime", movie.Runtime)}
@@ -142,14 +176,19 @@ function renderDetail(label, value) {
   `;
 }
 
-function renderPill(value) {
+function renderPill(label, value) {
   const formattedValue = formatValue(value, "");
 
   if (!formattedValue) {
     return "";
   }
 
-  return `<span class="pill">${escapeHtml(formattedValue)}</span>`;
+  return `
+    <span class="pill">
+      <span class="pill-label">${escapeHtml(label)}</span>
+      ${escapeHtml(formattedValue)}
+    </span>
+  `;
 }
 
 function renderError(message) {
@@ -166,7 +205,9 @@ function renderError(message) {
 function setLoading(loading) {
   isLoading = loading;
   searchButton.disabled = loading;
-  input.disabled = loading;
+  searchControls.forEach((control) => {
+    control.disabled = loading;
+  });
   resultEl.setAttribute("aria-busy", String(loading));
 
   searchButton.querySelector(".button-text").textContent = loading ? "Searching..." : "Search";
@@ -184,21 +225,78 @@ function setLoading(loading) {
   }
 }
 
-function saveLastSearch(title) {
+function getSearchOptions() {
+  return normalizeSearchOptions({
+    type: typeSelect.value,
+    year: yearInput.value,
+    plot: plotSelect.value,
+  });
+}
+
+function saveFilterPreferences() {
+  const savedState = loadSearchState();
+  saveSearchState({
+    ...savedState,
+    ...getSearchOptions(),
+  });
+}
+
+function saveSearchState(state) {
+  const normalizedState = {
+    title: String(state.title || "").trim(),
+    ...normalizeSearchOptions(state),
+  };
+
   try {
-    localStorage.setItem(LAST_SEARCH_KEY, title);
+    localStorage.setItem(SEARCH_STATE_KEY, JSON.stringify(normalizedState));
   } catch (error) {
-    console.warn("Could not save the last search.", error);
+    console.warn("Could not save the search settings.", error);
   }
 }
 
-function loadLastSearch() {
+function loadSearchState() {
   try {
-    return localStorage.getItem(LAST_SEARCH_KEY) || "";
+    const storedState = localStorage.getItem(SEARCH_STATE_KEY);
+
+    if (!storedState) {
+      return { ...DEFAULT_SEARCH_STATE };
+    }
+
+    try {
+      return normalizeSearchState(JSON.parse(storedState));
+    } catch (error) {
+      return normalizeSearchState({ title: storedState });
+    }
   } catch (error) {
-    console.warn("Could not load the last search.", error);
-    return "";
+    console.warn("Could not load the search settings.", error);
+    return { ...DEFAULT_SEARCH_STATE };
   }
+}
+
+function applySearchState(state) {
+  const normalizedState = normalizeSearchState(state);
+  input.value = normalizedState.title;
+  typeSelect.value = normalizedState.type;
+  yearInput.value = normalizedState.year;
+  plotSelect.value = normalizedState.plot;
+}
+
+function normalizeSearchState(state) {
+  return {
+    title: String(state.title || "").trim(),
+    ...normalizeSearchOptions(state),
+  };
+}
+
+function normalizeSearchOptions(options) {
+  const type = String(options.type || "").toLowerCase();
+  const plot = String(options.plot || DEFAULT_SEARCH_STATE.plot).toLowerCase();
+
+  return {
+    type: VALID_TYPES.includes(type) ? type : DEFAULT_SEARCH_STATE.type,
+    year: String(options.year || "").trim(),
+    plot: VALID_PLOTS.includes(plot) ? plot : DEFAULT_SEARCH_STATE.plot,
+  };
 }
 
 function renderMessage(message, type = "info") {
@@ -222,12 +320,32 @@ function normalizeTitle(title) {
   return String(title || "").trim().toLowerCase();
 }
 
-function formatValue(value, fallback = "N/A") {
+function createCacheKey(title, options) {
+  const searchOptions = normalizeSearchOptions(options);
+  return [
+    normalizeTitle(title),
+    searchOptions.type || "any",
+    searchOptions.year,
+    searchOptions.plot,
+  ].join("|");
+}
+
+function formatValue(value, fallback = "Not available") {
   if (!value || value === "N/A") {
     return fallback;
   }
 
   return value;
+}
+
+function formatType(type) {
+  const formattedType = formatValue(type, "");
+
+  if (!formattedType) {
+    return "";
+  }
+
+  return formattedType.charAt(0).toUpperCase() + formattedType.slice(1);
 }
 
 function formatRating(rating) {

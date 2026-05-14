@@ -38,7 +38,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -107,7 +108,7 @@ h1 {
   display: grid;
   grid-template-columns: minmax(0, 0.85fr) minmax(300px, 1.15fr);
   gap: 28px;
-  align-items: end;
+  align-items: center;
   padding: 26px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -135,11 +136,28 @@ h1 {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 14px;
   align-items: end;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.035)),
+    rgba(10, 9, 11, 0.42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .field-group {
   display: grid;
   gap: 8px;
+}
+
+.title-field {
+  grid-column: 1 / -1;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr 0.9fr;
+  gap: 12px;
 }
 
 label {
@@ -148,7 +166,9 @@ label {
   font-weight: 700;
 }
 
-input[type="search"] {
+input[type="search"],
+input[type="text"],
+select {
   width: 100%;
   min-height: 52px;
   padding: 0 16px;
@@ -157,17 +177,51 @@ input[type="search"] {
   outline: none;
   background: rgba(9, 8, 10, 0.72);
   color: var(--text);
-  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease, transform 180ms ease;
 }
 
-input[type="search"]::placeholder {
+select {
+  appearance: none;
+  padding-right: 42px;
+  background:
+    linear-gradient(45deg, transparent 50%, var(--accent) 50%) calc(100% - 22px) 50% / 7px 7px no-repeat,
+    linear-gradient(135deg, var(--accent) 50%, transparent 50%) calc(100% - 16px) 50% / 7px 7px no-repeat,
+    rgba(9, 8, 10, 0.72);
+}
+
+input[type="search"]::placeholder,
+input[type="text"]::placeholder {
   color: rgba(201, 189, 178, 0.7);
 }
 
-input[type="search"]:focus {
+input[type="search"]:hover:not(:disabled),
+input[type="text"]:hover:not(:disabled),
+select:hover:not(:disabled) {
+  border-color: rgba(244, 201, 93, 0.46);
+  background-color: rgba(9, 8, 10, 0.84);
+}
+
+input[type="search"]:focus,
+input[type="text"]:focus {
   border-color: var(--accent);
   background: rgba(9, 8, 10, 0.9);
   box-shadow: 0 0 0 4px rgba(242, 184, 75, 0.16);
+}
+
+select:focus {
+  border-color: var(--accent);
+  background:
+    linear-gradient(45deg, transparent 50%, var(--accent) 50%) calc(100% - 22px) 50% / 7px 7px no-repeat,
+    linear-gradient(135deg, var(--accent) 50%, transparent 50%) calc(100% - 16px) 50% / 7px 7px no-repeat,
+    rgba(9, 8, 10, 0.9);
+  box-shadow: 0 0 0 4px rgba(242, 184, 75, 0.16);
+}
+
+.field-helper {
+  margin: -2px 0 0;
+  color: rgba(201, 192, 189, 0.78);
+  font-size: 0.84rem;
+  line-height: 1.45;
 }
 
 #search-button {
@@ -293,12 +347,13 @@ input[type="search"]:focus {
 
 .movie-card {
   display: grid;
-  grid-template-columns: minmax(220px, 330px) minmax(0, 1fr);
+  grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
+  align-items: stretch;
   overflow: hidden;
 }
 
 .poster-panel {
-  min-height: 500px;
+  min-height: 470px;
   background: #0c0a0c;
 }
 
@@ -306,7 +361,7 @@ input[type="search"]:focus {
 .poster-fallback {
   width: 100%;
   height: 100%;
-  min-height: 500px;
+  min-height: 470px;
 }
 
 .poster-panel img {
@@ -346,12 +401,13 @@ input[type="search"]:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 
 .pill {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   min-height: 30px;
   padding: 5px 10px;
   border: 1px solid rgba(242, 184, 75, 0.25);
@@ -360,6 +416,12 @@ input[type="search"]:focus {
   color: var(--accent);
   font-size: 0.86rem;
   font-weight: 700;
+}
+
+.pill-label {
+  color: rgba(248, 243, 238, 0.82);
+  font-size: 0.74rem;
+  text-transform: uppercase;
 }
 
 .movie-title {
@@ -427,9 +489,14 @@ input[type="search"]:focus {
 
   .search-panel,
   .search-form,
+  .filters-grid,
   .movie-card,
   .details-grid {
     grid-template-columns: 1fr;
+  }
+
+  .search-form {
+    padding: 16px;
   }
 
   .search-panel {
@@ -439,6 +506,10 @@ input[type="search"]:focus {
 
   #search-button {
     width: 100%;
+  }
+
+  .filters-grid {
+    gap: 14px;
   }
 
   .poster-panel,
