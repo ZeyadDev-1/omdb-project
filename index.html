@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Search OMDb for movie details, posters, cast, ratings, and plots.">
+  <title>OMDb Movie Search</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="app-header">
+      <div class="brand-mark" aria-hidden="true">OM</div>
+      <div>
+        <p class="eyebrow">OMDb Movie Search</p>
+        <h1>Find a film for tonight</h1>
+      </div>
+    </header>
+
+    <main>
+      <section class="search-panel" aria-labelledby="search-title">
+        <div class="search-copy">
+          <h2 id="search-title">Search by movie title</h2>
+          <p>Type an exact or familiar title and get poster art, credits, ratings, and the full plot from OMDb.</p>
+        </div>
+
+        <form class="search-form" id="movie-form" novalidate>
+          <div class="field-group">
+            <label for="movie-title">Movie name</label>
+            <input
+              type="search"
+              id="movie-title"
+              name="movie-title"
+              placeholder="For example: Inception"
+              autocomplete="off"
+              aria-describedby="search-message"
+            >
+          </div>
+          <button type="submit" id="search-button">
+            <span class="button-text">Search</span>
+          </button>
+        </form>
+      </section>
+
+      <section class="status-region" aria-live="polite" aria-atomic="true">
+        <p id="search-message" class="message"></p>
+      </section>
+
+      <section
+        id="movie-result"
+        class="result-region"
+        aria-live="polite"
+        aria-busy="false"
+      >
+        <div class="empty-state">
+          <div class="ticket-icon" aria-hidden="true"></div>
+          <h2>Your movie details will appear here</h2>
+          <p>Start with a title like <span>Interstellar</span>, <span>The Matrix</span>, or <span>Parasite</span>.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
