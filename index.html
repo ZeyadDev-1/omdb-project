@@ -67,13 +67,13 @@
               </select>
             </div>
           </div>
-          <button type="submit" id="search-button">
+          <button type="submit" id="search-button" aria-describedby="search-message">
             <span class="button-text">Search</span>
           </button>
         </form>
       </section>
 
-      <section class="status-region" aria-live="polite" aria-atomic="true">
+      <section class="status-region" aria-live="polite" aria-atomic="true" role="status">
         <p id="search-message" class="message"></p>
       </section>
 
@@ -92,6 +92,6 @@
     </main>
   </div>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

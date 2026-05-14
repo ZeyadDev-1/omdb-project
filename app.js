@@ -25,7 +25,7 @@ const searchControls = [input, typeSelect, yearInput, plotSelect];
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
-  searchMovie(input.value, getSearchOptions()).catch(handleUnexpectedSearchError);
+  handleSearchSubmit().catch(handleUnexpectedSearchError);
 });
 
 [typeSelect, plotSelect].forEach((control) => {
@@ -43,8 +43,16 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
+async function handleSearchSubmit() {
+  const title = normalizeSearchTitle(input.value);
+
+  input.value = title;
+
+  await searchMovie(title, getSearchOptions());
+}
+
 async function searchMovie(rawTitle, options = getSearchOptions()) {
-  const title = String(rawTitle || "").trim();
+  const title = normalizeSearchTitle(rawTitle);
   const searchOptions = normalizeSearchOptions(options);
 
   if (isLoading) {
@@ -63,13 +71,12 @@ async function searchMovie(rawTitle, options = getSearchOptions()) {
     return;
   }
 
-  saveSearchState({ title, ...searchOptions });
-
   const cacheKey = createCacheKey(title, searchOptions);
   const cachedMovie = movieCache.get(cacheKey);
 
   if (cachedMovie) {
     renderMovie(cachedMovie);
+    saveSearchState({ title, ...searchOptions });
     renderMessage("Loaded from this session's cache.", "success");
     return;
   }
@@ -79,11 +86,15 @@ async function searchMovie(rawTitle, options = getSearchOptions()) {
 
   try {
     const movie = await fetchMovie(title, searchOptions);
+    const movieTitle = formatValue(movie.Title, title);
 
     movieCache.set(cacheKey, movie);
-    movieCache.set(createCacheKey(movie.Title, searchOptions), movie);
+    if (normalizeSearchTitle(movie.Title)) {
+      movieCache.set(createCacheKey(movie.Title, searchOptions), movie);
+    }
     renderMovie(movie);
-    renderMessage(`Showing results for "${movie.Title}".`, "success");
+    saveSearchState({ title, ...searchOptions });
+    renderMessage(`Showing results for "${movieTitle}".`, "success");
   } catch (error) {
     renderError(getFriendlyErrorMessage(error));
   } finally {
@@ -107,15 +118,31 @@ async function fetchMovie(title, options) {
   }
 
   const url = `${OMDB_API_URL}?${params.toString()}`;
-  const response = await fetch(url);
+  let response;
+
+  try {
+    response = await fetch(url);
+  } catch (error) {
+    throw new Error("network");
+  }
 
   if (!response.ok) {
     throw new Error("network");
   }
 
-  const data = await response.json();
+  let data;
 
-  if (data.Response === "False") {
+  try {
+    data = await response.json();
+  } catch (error) {
+    throw new Error("invalid-response");
+  }
+
+  if (!data || typeof data !== "object") {
+    throw new Error("invalid-response");
+  }
+
+  if (String(data.Response).toLowerCase() === "false") {
     throw new Error(data.Error || "not-found");
   }
 
@@ -156,7 +183,7 @@ function renderMovie(movie) {
 function renderPoster(movie) {
   const title = formatValue(movie.Title, "Movie poster unavailable");
 
-  if (movie.Poster && movie.Poster !== "N/A") {
+  if (hasUsablePoster(movie.Poster)) {
     return `<img src="${escapeAttribute(movie.Poster)}" alt="${escapeAttribute(title)} poster">`;
   }
 
@@ -195,7 +222,7 @@ function renderError(message) {
   resultEl.innerHTML = `
     <div class="empty-state" role="alert">
       <div class="ticket-icon" aria-hidden="true"></div>
-      <h2>Nothing to show yet</h2>
+      <h2>We could not find a match</h2>
       <p>${escapeHtml(message)}</p>
     </div>
   `;
@@ -243,7 +270,7 @@ function saveFilterPreferences() {
 
 function saveSearchState(state) {
   const normalizedState = {
-    title: String(state.title || "").trim(),
+    title: normalizeSearchTitle(state.title),
     ...normalizeSearchOptions(state),
   };
 
@@ -283,12 +310,12 @@ function applySearchState(state) {
 
 function normalizeSearchState(state) {
   return {
-    title: String(state.title || "").trim(),
+    title: normalizeSearchTitle(state.title),
     ...normalizeSearchOptions(state),
   };
 }
 
-function normalizeSearchOptions(options) {
+function normalizeSearchOptions(options = {}) {
   const type = String(options.type || "").toLowerCase();
   const plot = String(options.plot || DEFAULT_SEARCH_STATE.plot).toLowerCase();
 
@@ -316,12 +343,24 @@ function hasApiKey() {
   return Boolean(OMDB_API_KEY && OMDB_API_KEY !== "API_KEY");
 }
 
+function hasUsablePoster(poster) {
+  const normalizedPoster = String(poster || "").trim();
+  return Boolean(normalizedPoster && normalizedPoster.toUpperCase() !== "N/A");
+}
+
+// Normalize only the value used for searching; the user's casing stays intact.
+function normalizeSearchTitle(title) {
+  return String(title || "").trim().replace(/\s+/g, " ");
+}
+
 function normalizeTitle(title) {
-  return String(title || "").trim().toLowerCase();
+  return normalizeSearchTitle(title).toLowerCase();
 }
 
 function createCacheKey(title, options) {
   const searchOptions = normalizeSearchOptions(options);
+
+  // Lowercase cache keys make repeated searches reliable across casing changes.
   return [
     normalizeTitle(title),
     searchOptions.type || "any",
@@ -331,11 +370,13 @@ function createCacheKey(title, options) {
 }
 
 function formatValue(value, fallback = "Not available") {
-  if (!value || value === "N/A") {
+  const normalizedValue = String(value || "").trim();
+
+  if (!normalizedValue || normalizedValue.toUpperCase() === "N/A") {
     return fallback;
   }
 
-  return value;
+  return normalizedValue;
 }
 
 function formatType(type) {
@@ -355,7 +396,7 @@ function formatRating(rating) {
 
 function getFriendlyErrorMessage(error) {
   if (error.message === "Movie not found!" || error.message === "not-found") {
-    return "No movie was found for that title. Try a different or more exact name.";
+    return "No movie was found for that title. Check the spelling or try a more exact movie name.";
   }
 
   if (error.message === "Invalid API key!") {
@@ -364,6 +405,10 @@ function getFriendlyErrorMessage(error) {
 
   if (error.message === "network") {
     return "The movie service could not be reached. Check your connection and try again.";
+  }
+
+  if (error.message === "invalid-response") {
+    return "The movie service returned something unexpected. Please try again in a moment.";
   }
 
   return "Something went wrong while searching. Please try again.";
