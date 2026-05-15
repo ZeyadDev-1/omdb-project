@@ -1,6 +1,6 @@
-# OMDb Movie Search SPA
-
 ## Live Demo: https://zeyaddev-1.github.io/omdb-project/
+
+# OMDb Movie Search SPA
 
 ## Overview
 
